@@ -1,0 +1,96 @@
+package edu.neu.coe.info6205.sort.par;
+
+import java.util.Arrays;
+import java.util.concurrent.CompletableFuture;
+
+/**
+ * This class implements a parallel sorting algorithm.
+ * It sorts partitions of an array in parallel based on a configurable cutoff value.
+ */
+public class ParallelSort {
+
+    // Default cutoff value
+    private static int cutoff = 1000;
+
+    /**
+     * Main sorting method that sorts a portion of the array.
+     * @param array the array to be sorted
+     * @param from the starting index (inclusive)
+     * @param to the ending index (exclusive)
+     */
+    public static void sort(int[] array, int from, int to) {
+        if (to - from < cutoff) {
+            // Use Arrays.sort for small partitions
+            Arrays.sort(array, from, to);
+        } else {
+            // Split the array into two halves and sort them in parallel
+            int mid = from + (to - from) / 2;
+
+            CompletableFuture<Void> leftSort = CompletableFuture.runAsync(() -> sort(array, from, mid));
+            CompletableFuture<Void> rightSort = CompletableFuture.runAsync(() -> sort(array, mid, to));
+
+            // Wait for both halves to be sorted
+            CompletableFuture<Void> combined = CompletableFuture.allOf(leftSort, rightSort);
+            combined.join();
+
+            // Merge the sorted halves
+            merge(array, from, mid, to);
+        }
+    }
+
+    /**
+     * Merges two sorted subarrays into one sorted array.
+     * @param array the array containing the subarrays
+     * @param from the starting index of the first subarray
+     * @param mid the ending index of the first subarray
+     * @param to the ending index of the second subarray
+     */
+    private static void merge(int[] array, int from, int mid, int to) {
+        int[] left = Arrays.copyOfRange(array, from, mid);
+        int[] right = Arrays.copyOfRange(array, mid, to);
+        int i = 0, j = 0, k = from;
+
+        while (i < left.length && j < right.length) {
+            if (left[i] <= right[j]) {
+                array[k++] = left[i++];
+            } else {
+                array[k++] = right[j++];
+            }
+        }
+
+        // Copy remaining elements of left if any
+        while (i < left.length) {
+            array[k++] = left[i++];
+        }
+
+        // Copy remaining elements of right if any
+        while (j < right.length) {
+            array[k++] = right[j++];
+        }
+    }
+
+    /**
+     * Main method to execute the program and set the cutoff from the command line.
+     * @param args command line arguments
+     */
+    public static void main(String[] args) {
+        // Update cutoff value based on command line argument
+        if (args.length > 0) {
+            try {
+                cutoff = Integer.parseInt(args[0]);
+            } catch (NumberFormatException e) {
+                System.out.println("Invalid cutoff value, using default: " + cutoff);
+            }
+        }
+        
+        // Example array to sort
+        int[] array = {5, 3, 8, 1, 2, 7, 4, 6, 9, 0}; // Sample data
+        System.out.println("Original Array: " + Arrays.toString(array));
+        
+        // Sort the array
+        sort(array, 0, array.length);
+        
+        // Display sorted array
+        System.out.println("Sorted Array: " + Arrays.toString(array));
+    }
+}
